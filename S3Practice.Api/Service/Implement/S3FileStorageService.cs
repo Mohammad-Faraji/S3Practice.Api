@@ -1,4 +1,5 @@
 ﻿using Amazon.Runtime;
+using Amazon.Runtime.Internal;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Microsoft.Extensions.Options;
@@ -49,15 +50,46 @@ namespace S3Practice.Api.Service.Implement
             throw new ArgumentException("URL is not valid for this bucket.", nameof(fileUrl));
         }
 
-        public Task DeleteAsync(string fileUrl)
+        public async Task DeleteAsync(string fileUrl)
         {
-            throw new NotImplementedException();
+            if (string.IsNullOrWhiteSpace(fileUrl))
+                throw new ArgumentException("File URL cannot be empty", nameof(fileUrl));
+
+            var key = GetKeyFromUrl(fileUrl);
+
+            var request = new DeleteObjectRequest
+            {
+                BucketName = _config.BucketName.ToLower(),
+                Key = key
+            };
+
+            await _s3Client.DeleteObjectAsync(request);
         }
 
-        public Task<Stream> DownloadAsync(string fileUrl, CancellationToken ct)
+
+        public async Task<Stream> DownloadAsync(string fileUrl, CancellationToken ct)
         {
-            throw new NotImplementedException();
+            if (string.IsNullOrWhiteSpace(fileUrl))
+                throw new ArgumentException("File URL cannot be empty", nameof(fileUrl));
+
+            var key = GetKeyFromUrl(fileUrl);
+
+            var request = new GetObjectRequest
+            {
+                BucketName = _config.BucketName.ToLower(),
+                Key = key
+            };
+
+            using var response = await _s3Client.GetObjectAsync(request, ct);
+
+            var ms = new MemoryStream();
+            await response.ResponseStream.CopyToAsync(ms, ct);
+            ms.Position = 0;
+
+            return ms;
         }
+
+
 
         public async Task<string> UploadAsync(IFormFile file, string name)
         {
